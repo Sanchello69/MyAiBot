@@ -1,6 +1,7 @@
 package com.turboguys.myaibot.presentation.chat
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.turboguys.myaibot.domain.model.Message
@@ -63,9 +65,14 @@ fun ChatScreen(
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
             items(state.messages) { message ->
-                MessageItem(message = message)
+                MessageItem(
+                    message = message,
+                    onSuggestionClick = { suggestion ->
+                        viewModel.handleEvent(ChatEvent.SendMessage(suggestion))
+                    }
+                )
             }
-            
+
             if (state.isLoading) {
                 item {
                     LoadingIndicator()
@@ -122,11 +129,15 @@ fun ChatScreen(
 }
 
 @Composable
-fun MessageItem(message: Message) {
-    Row(
+fun MessageItem(
+    message: Message,
+    onSuggestionClick: (String) -> Unit = {}
+) {
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start
+        horizontalAlignment = if (message.isUser) Alignment.End else Alignment.Start
     ) {
+        // Основное сообщение
         Card(
             modifier = Modifier
                 .widthIn(max = 280.dp)
@@ -155,6 +166,30 @@ fun MessageItem(message: Message) {
                 },
                 fontSize = 16.sp
             )
+        }
+
+        // Предложения (только для сообщений ассистента)
+        if (!message.isUser && !message.suggestions.isNullOrEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Column(
+                modifier = Modifier
+                    .widthIn(max = 280.dp)
+                    .padding(horizontal = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "💡 Предложения:",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                )
+                message.suggestions.forEach { suggestion ->
+                    SuggestionChip(
+                        suggestion = suggestion,
+                        onClick = { onSuggestionClick(suggestion) }
+                    )
+                }
+            }
         }
     }
 }
@@ -245,3 +280,38 @@ fun InputField(
     }
 }
 
+@Composable
+fun SuggestionChip(
+    suggestion: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "•",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+            Text(
+                text = suggestion,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}

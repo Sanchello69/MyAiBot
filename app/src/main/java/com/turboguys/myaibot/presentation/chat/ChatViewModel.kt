@@ -30,7 +30,7 @@ class ChatViewModel(
         if (trimmedText.isEmpty()) return
 
         val userMessage = Message(text = trimmedText, isUser = true)
-        
+
         _state.update { currentState ->
             currentState.copy(
                 messages = currentState.messages + userMessage,
@@ -41,11 +41,39 @@ class ChatViewModel(
         }
 
         viewModelScope.launch {
-            val result = repository.sendMessage(_state.value.messages + userMessage)
-            
+            val result = repository.sendMessage(_state.value.messages.filter { it.isUser || it.text.isNotBlank() })
+
             if (result.isSuccess) {
-                val response = result.getOrNull() ?: return@launch
-                val assistantMessage = Message(text = response, isUser = false)
+                val structuredResponse = result.getOrNull() ?: return@launch
+
+                // Формируем основной текст ответа
+                val responseText = buildString {
+                    append(structuredResponse.response ?: "")
+                    if (!structuredResponse.comment.isNullOrBlank()) {
+                        append("\n\n💭 ${structuredResponse.comment}")
+                    }
+                    if (!structuredResponse.emotion.isNullOrBlank()) {
+                        append("\n\n😊 Настроение: ${structuredResponse.emotion}")
+                    }
+                    if (structuredResponse.confidence != null) {
+                        val confidencePercent = (structuredResponse.confidence * 100).toInt()
+                        append("\n📊 Уверенность: $confidencePercent%")
+                    }
+                    if (!structuredResponse.topics.isNullOrEmpty()) {
+                        append("\n\n🏷️ Темы: ${structuredResponse.topics.joinToString(", ")}")
+                    }
+                }
+
+                val assistantMessage = Message(
+                    text = responseText,
+                    isUser = false,
+                    suggestions = structuredResponse.suggestions,
+                    emotion = structuredResponse.emotion,
+                    confidence = structuredResponse.confidence,
+                    topics = structuredResponse.topics,
+                    comment = structuredResponse.comment
+                )
+
                 _state.update { currentState ->
                     currentState.copy(
                         messages = currentState.messages + assistantMessage,

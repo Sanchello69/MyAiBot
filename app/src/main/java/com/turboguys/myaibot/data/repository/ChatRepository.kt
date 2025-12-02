@@ -93,7 +93,7 @@ class ChatRepository(
         }
     }
 
-    suspend fun sendMessage(messages: List<Message>): Result<String> {
+    suspend fun sendMessage(messages: List<Message>): Result<StructuredResponse> {
         return try {
             // Получаем токен доступа
             val tokenResult = getAccessToken()
@@ -171,40 +171,19 @@ class ChatRepository(
 
                     gson.fromJson(cleanedContent, StructuredResponse::class.java)
                 } catch (e: Exception) {
-                    // Если не удалось распарсить, возвращаем как есть
-                    null
+                    // Если не удалось распарсить, возвращаем fallback структуру
+                    StructuredResponse(
+                        response = rawContent,
+                        comment = null
+                    )
                 }
 
-                // Формируем финальный ответ
-                val formattedAnswer = if (structuredResponse != null && !structuredResponse.response.isNullOrBlank()) {
-                    buildString {
-                        append(structuredResponse.response)
-                        if (!structuredResponse.comment.isNullOrBlank()) {
-                            append("\n\n💭 ${structuredResponse.comment}")
-                        }
-                        if (!structuredResponse.emotion.isNullOrBlank()) {
-                            append("\n\n😊 Настроение: ${structuredResponse.emotion}")
-                        }
-                        if (structuredResponse.confidence != null) {
-                            val confidencePercent = (structuredResponse.confidence * 100).toInt()
-                            append("\n📊 Уверенность: $confidencePercent%")
-                        }
-                        if (!structuredResponse.topics.isNullOrEmpty()) {
-                            append("\n\n🏷️ Темы: ${structuredResponse.topics.joinToString(", ")}")
-                        }
-                        if (!structuredResponse.suggestions.isNullOrEmpty()) {
-                            append("\n\n💡 Предложения:")
-                            structuredResponse.suggestions.forEach { suggestion ->
-                                append("\n  • $suggestion")
-                            }
-                        }
-                    }
+                // Проверяем, что есть хотя бы response
+                if (structuredResponse.response.isNullOrBlank()) {
+                    Result.failure(Exception("Empty response content"))
                 } else {
-                    // Если не удалось распарсить JSON, возвращаем сырой ответ
-                    rawContent
+                    Result.success(structuredResponse)
                 }
-
-                Result.success(formattedAnswer)
             }
         } catch (e: HttpException) {
             val errorBody = try {
