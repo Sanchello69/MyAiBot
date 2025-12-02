@@ -176,10 +176,10 @@ class ChatRepository(
                 }
 
                 // Формируем финальный ответ
-                val formattedAnswer = if (structuredResponse != null) {
+                val formattedAnswer = if (structuredResponse != null && !structuredResponse.response.isNullOrBlank()) {
                     buildString {
                         append(structuredResponse.response)
-                        if (structuredResponse.comment.isNotBlank()) {
+                        if (!structuredResponse.comment.isNullOrBlank()) {
                             append("\n\n💭 ${structuredResponse.comment}")
                         }
                         if (!structuredResponse.emotion.isNullOrBlank()) {

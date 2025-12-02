@@ -7,10 +7,10 @@ import com.google.gson.annotations.SerializedName
  */
 data class StructuredResponse(
     @SerializedName("response")
-    val response: String,
+    val response: String? = null,
 
     @SerializedName("comment")
-    val comment: String,
+    val comment: String? = null,
 
     @SerializedName("emotion")
     val emotion: String? = null,
