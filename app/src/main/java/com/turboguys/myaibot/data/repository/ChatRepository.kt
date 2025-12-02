@@ -1,9 +1,11 @@
 package com.turboguys.myaibot.data.repository
 
+import com.google.gson.Gson
 import com.turboguys.myaibot.data.api.GigaChatApi
 import com.turboguys.myaibot.data.api.GigaChatOAuthApi
 import com.turboguys.myaibot.data.api.dto.ChatMessage
 import com.turboguys.myaibot.data.api.dto.GigaChatRequest
+import com.turboguys.myaibot.data.api.dto.StructuredResponse
 import com.turboguys.myaibot.domain.model.Message
 import retrofit2.HttpException
 import java.io.IOException
@@ -17,6 +19,27 @@ class ChatRepository(
     private var cachedToken: String? = null
     private var tokenExpiresAt: Long = 0
     private var sessionId: String = UUID.randomUUID().toString()
+    private val gson = Gson()
+
+    companion object {
+        private const val SYSTEM_PROMPT = """Ты должен отвечать ТОЛЬКО в формате JSON со следующей структурой:
+{
+  "response": "основной ответ на вопрос пользователя",
+  "comment": "дополнительный комментарий или пояснение к ответу",
+  "emotion": "эмоциональный тон ответа (например: neutral, happy, thoughtful, excited, curious)",
+  "confidence": числовое значение от 0.0 до 1.0, показывающее уверенность в ответе,
+  "topics": ["массив", "ключевых", "тем", "упомянутых", "в", "ответе"],
+  "suggestions": ["массив", "предложений", "для", "продолжения", "диалога"]
+}
+
+ВАЖНО:
+- Всегда возвращай валидный JSON
+- Поля "response" и "comment" обязательны
+- Остальные поля опциональны, но рекомендуются
+- Не добавляй никакого текста до или после JSON
+- Используй двойные кавычки для строк
+- Не используй переносы строк внутри значений строк"""
+    }
 
     private suspend fun getAccessToken(forceRefresh: Boolean = false): Result<String> {
         // Проверяем, не истек ли токен (оставляем запас 1 минута)
@@ -79,13 +102,21 @@ class ChatRepository(
             }
             var accessToken = tokenResult.getOrNull() ?: return Result.failure(Exception("Empty token"))
 
-            val chatMessages = messages.map { msg ->
-                ChatMessage(
-                    role = if (msg.isUser) "user" else "assistant",
-                    content = msg.text
-                )
+            // Добавляем системный промпт в начало списка сообщений
+            val systemMessage = ChatMessage(
+                role = "system",
+                content = SYSTEM_PROMPT
+            )
+
+            val chatMessages = mutableListOf(systemMessage).apply {
+                addAll(messages.map { msg ->
+                    ChatMessage(
+                        role = if (msg.isUser) "user" else "assistant",
+                        content = msg.text
+                    )
+                })
             }
-            
+
             val request = GigaChatRequest(
                 messages = chatMessages
             )
@@ -125,9 +156,55 @@ class ChatRepository(
             if (response.error != null) {
                 Result.failure(Exception(response.error.message ?: "Unknown error"))
             } else {
-                val answer = response.choices?.firstOrNull()?.message?.content
+                val rawContent = response.choices?.firstOrNull()?.message?.content
                     ?: throw Exception("Empty response")
-                Result.success(answer)
+
+                // Пытаемся распарсить JSON ответ
+                val structuredResponse = try {
+                    // Убираем возможные markdown-маркеры кода
+                    val cleanedContent = rawContent
+                        .trim()
+                        .removePrefix("```json")
+                        .removePrefix("```")
+                        .removeSuffix("```")
+                        .trim()
+
+                    gson.fromJson(cleanedContent, StructuredResponse::class.java)
+                } catch (e: Exception) {
+                    // Если не удалось распарсить, возвращаем как есть
+                    null
+                }
+
+                // Формируем финальный ответ
+                val formattedAnswer = if (structuredResponse != null) {
+                    buildString {
+                        append(structuredResponse.response)
+                        if (structuredResponse.comment.isNotBlank()) {
+                            append("\n\n💭 ${structuredResponse.comment}")
+                        }
+                        if (!structuredResponse.emotion.isNullOrBlank()) {
+                            append("\n\n😊 Настроение: ${structuredResponse.emotion}")
+                        }
+                        if (structuredResponse.confidence != null) {
+                            val confidencePercent = (structuredResponse.confidence * 100).toInt()
+                            append("\n📊 Уверенность: $confidencePercent%")
+                        }
+                        if (!structuredResponse.topics.isNullOrEmpty()) {
+                            append("\n\n🏷️ Темы: ${structuredResponse.topics.joinToString(", ")}")
+                        }
+                        if (!structuredResponse.suggestions.isNullOrEmpty()) {
+                            append("\n\n💡 Предложения:")
+                            structuredResponse.suggestions.forEach { suggestion ->
+                                append("\n  • $suggestion")
+                            }
+                        }
+                    }
+                } else {
+                    // Если не удалось распарсить JSON, возвращаем сырой ответ
+                    rawContent
+                }
+
+                Result.success(formattedAnswer)
             }
         } catch (e: HttpException) {
             val errorBody = try {
