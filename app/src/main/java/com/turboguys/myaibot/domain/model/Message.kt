@@ -8,6 +8,7 @@ data class Message(
     val emotion: String? = null,
     val confidence: Double? = null,
     val topics: List<String>? = null,
-    val comment: String? = null
+    val comment: String? = null,
+    val rawJson: String? = null
 )
 

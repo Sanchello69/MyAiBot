@@ -71,7 +71,8 @@ class ChatViewModel(
                     emotion = structuredResponse.emotion,
                     confidence = structuredResponse.confidence,
                     topics = structuredResponse.topics,
-                    comment = structuredResponse.comment
+                    comment = structuredResponse.comment,
+                    rawJson = structuredResponse.rawJson
                 )
 
                 _state.update { currentState ->

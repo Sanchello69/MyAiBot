@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
@@ -15,8 +17,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.turboguys.myaibot.domain.model.Message
 import org.koin.androidx.compose.koinViewModel
 
@@ -27,6 +31,7 @@ fun ChatScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val listState = rememberLazyListState()
+    var selectedMessageJson by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(state.messages.size) {
         if (state.messages.isNotEmpty()) {
@@ -69,6 +74,9 @@ fun ChatScreen(
                     message = message,
                     onSuggestionClick = { suggestion ->
                         viewModel.handleEvent(ChatEvent.SendMessage(suggestion))
+                    },
+                    onMessageClick = { json ->
+                        selectedMessageJson = json
                     }
                 )
             }
@@ -125,13 +133,22 @@ fun ChatScreen(
                 }
             }
         }
+
+        // Диалог для отображения JSON
+        selectedMessageJson?.let { json ->
+            JsonDialog(
+                json = json,
+                onDismiss = { selectedMessageJson = null }
+            )
+        }
     }
 }
 
 @Composable
 fun MessageItem(
     message: Message,
-    onSuggestionClick: (String) -> Unit = {}
+    onSuggestionClick: (String) -> Unit = {},
+    onMessageClick: (String) -> Unit = {}
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -141,7 +158,14 @@ fun MessageItem(
         Card(
             modifier = Modifier
                 .widthIn(max = 280.dp)
-                .padding(horizontal = 4.dp),
+                .padding(horizontal = 4.dp)
+                .then(
+                    if (!message.isUser && message.rawJson != null) {
+                        Modifier.clickable { onMessageClick(message.rawJson!!) }
+                    } else {
+                        Modifier
+                    }
+                ),
             shape = RoundedCornerShape(
                 topStart = 16.dp,
                 topEnd = 16.dp,
@@ -312,6 +336,66 @@ fun SuggestionChip(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
+        }
+    }
+}
+
+@Composable
+fun JsonDialog(
+    json: String,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.8f),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "Raw JSON Response",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                // Прокручиваемая область с JSON
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = json,
+                        modifier = Modifier
+                            .padding(12.dp)
+                            .verticalScroll(rememberScrollState()),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Кнопка OK
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("OK")
+                }
+            }
         }
     }
 }

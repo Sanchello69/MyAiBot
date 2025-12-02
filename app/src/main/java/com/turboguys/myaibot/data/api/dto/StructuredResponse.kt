@@ -23,4 +23,7 @@ data class StructuredResponse(
 
     @SerializedName("suggestions")
     val suggestions: List<String>? = null
-)
+) {
+    // Сырой JSON (заполняется после парсинга)
+    var rawJson: String? = null
+}

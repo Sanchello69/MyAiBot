@@ -160,22 +160,23 @@ class ChatRepository(
                     ?: throw Exception("Empty response")
 
                 // Пытаемся распарсить JSON ответ
-                val structuredResponse = try {
-                    // Убираем возможные markdown-маркеры кода
-                    val cleanedContent = rawContent
-                        .trim()
-                        .removePrefix("```json")
-                        .removePrefix("```")
-                        .removeSuffix("```")
-                        .trim()
+                val cleanedContent = rawContent
+                    .trim()
+                    .removePrefix("```json")
+                    .removePrefix("```")
+                    .removeSuffix("```")
+                    .trim()
 
-                    gson.fromJson(cleanedContent, StructuredResponse::class.java)
-                } catch (e: Exception) {
+                val structuredResponse = try {
+                    // Парсим JSON и добавляем сырой JSON
+                    val parsed = gson.fromJson(cleanedContent, StructuredResponse::class.java)
+                    parsed.apply { rawJson = cleanedContent }
+                } catch (_: Exception) {
                     // Если не удалось распарсить, возвращаем fallback структуру
                     StructuredResponse(
                         response = rawContent,
                         comment = null
-                    )
+                    ).apply { rawJson = cleanedContent }
                 }
 
                 // Проверяем, что есть хотя бы response
