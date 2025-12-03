@@ -9,6 +9,7 @@ data class Message(
     val confidence: Double? = null,
     val topics: List<String>? = null,
     val comment: String? = null,
-    val rawJson: String? = null
+    val rawJson: String? = null,
+    val isFinalRecommendation: Boolean = false
 )
 

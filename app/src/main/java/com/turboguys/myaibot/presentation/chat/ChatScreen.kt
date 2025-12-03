@@ -52,56 +52,133 @@ fun ChatScreen(
     ) {
         // Заголовок
         TopAppBar(
-            title = { Text("GigaChat Assistant") },
+            title = { Text("🍵 Чайный сомелье") },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
             )
         )
 
-        // Список сообщений
-        LazyColumn(
-            state = listState,
+        // Список сообщений или стартовый экран
+        Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
         ) {
-            items(state.messages) { message ->
-                MessageItem(
-                    message = message,
-                    onSuggestionClick = { suggestion ->
-                        viewModel.handleEvent(ChatEvent.SendMessage(suggestion))
-                    },
-                    onMessageClick = { json ->
-                        selectedMessageJson = json
+            if (state.messages.isEmpty() && !state.isLoading) {
+                // Стартовый экран с кнопкой
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "🍵",
+                        fontSize = 80.sp,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                    Text(
+                        text = "Чайный сомелье",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Text(
+                        text = "Помогу подобрать идеальный чай",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 32.dp)
+                    )
+                    Button(
+                        onClick = {
+                            viewModel.handleEvent(ChatEvent.SendMessage("Привет"))
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            text = "Узнать свой чай",
+                            fontSize = 18.sp
+                        )
                     }
-                )
-            }
+                }
+            } else {
+                // Список сообщений
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
+                ) {
+                    items(state.messages) { message ->
+                        MessageItem(
+                            message = message,
+                            onSuggestionClick = { suggestion ->
+                                viewModel.handleEvent(ChatEvent.SendMessage(suggestion))
+                            },
+                            onMessageClick = { json ->
+                                selectedMessageJson = json
+                            }
+                        )
+                    }
 
-            if (state.isLoading) {
-                item {
-                    LoadingIndicator()
+                    if (state.isLoading) {
+                        item {
+                            LoadingIndicator()
+                        }
+                    }
                 }
             }
         }
 
-        // Поле ввода
-        InputField(
-            text = state.inputText,
-            onTextChange = { viewModel.handleEvent(ChatEvent.UpdateInputText(it)) },
-            onSend = {
-                if (state.inputText.trim().isNotEmpty() && !state.isLoading) {
-                    viewModel.handleEvent(ChatEvent.SendMessage(state.inputText))
+        // Проверяем, есть ли финальная рекомендация
+        val hasFinalRecommendation = state.messages.any { it.isFinalRecommendation }
+
+        // Кнопка "Выбрать другой чай" или поле ввода
+        if (hasFinalRecommendation && !state.isLoading) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+            ) {
+                Button(
+                    onClick = {
+                        viewModel.handleEvent(ChatEvent.ResetChat)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = "Выбрать другой чай",
+                        fontSize = 18.sp
+                    )
                 }
-            },
-            enabled = !state.isLoading,
-            modifier = Modifier
-                .padding(16.dp)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-        )
+            }
+        } else {
+            // Поле ввода
+            InputField(
+                text = state.inputText,
+                onTextChange = { viewModel.handleEvent(ChatEvent.UpdateInputText(it)) },
+                onSend = {
+                    if (state.inputText.trim().isNotEmpty() && !state.isLoading) {
+                        viewModel.handleEvent(ChatEvent.SendMessage(state.inputText))
+                    }
+                },
+                enabled = !state.isLoading,
+                modifier = Modifier
+                    .padding(16.dp)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+            )
+        }
 
         // Ошибка
         state.error?.let { error ->

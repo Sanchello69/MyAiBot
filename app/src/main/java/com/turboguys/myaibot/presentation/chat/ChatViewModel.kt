@@ -22,6 +22,7 @@ class ChatViewModel(
             is ChatEvent.SendMessage -> handleSendMessage(event.text)
             is ChatEvent.UpdateInputText -> handleUpdateInputText(event.text)
             is ChatEvent.ClearError -> handleClearError()
+            is ChatEvent.ResetChat -> handleResetChat()
         }
     }
 
@@ -72,7 +73,8 @@ class ChatViewModel(
                     confidence = structuredResponse.confidence,
                     topics = structuredResponse.topics,
                     comment = structuredResponse.comment,
-                    rawJson = structuredResponse.rawJson
+                    rawJson = structuredResponse.rawJson,
+                    isFinalRecommendation = structuredResponse.isFinalRecommendation == true
                 )
 
                 _state.update { currentState ->
@@ -99,6 +101,10 @@ class ChatViewModel(
 
     private fun handleClearError() {
         _state.update { it.copy(error = null) }
+    }
+
+    private fun handleResetChat() {
+        _state.update { ChatState() }
     }
 }
 

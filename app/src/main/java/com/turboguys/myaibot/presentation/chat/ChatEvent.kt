@@ -4,5 +4,6 @@ sealed class ChatEvent {
     data class SendMessage(val text: String) : ChatEvent()
     data class UpdateInputText(val text: String) : ChatEvent()
     object ClearError : ChatEvent()
+    object ResetChat : ChatEvent()
 }
 

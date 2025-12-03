@@ -22,7 +22,10 @@ data class StructuredResponse(
     val topics: List<String>? = null,
 
     @SerializedName("suggestions")
-    val suggestions: List<String>? = null
+    val suggestions: List<String>? = null,
+
+    @SerializedName("is_final_recommendation")
+    val isFinalRecommendation: Boolean? = null
 ) {
     // Сырой JSON (заполняется после парсинга)
     var rawJson: String? = null
